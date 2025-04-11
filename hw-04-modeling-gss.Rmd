@@ -1,5 +1,6 @@
 ---
 title: "HW 04 - Modeling the GSS"
+author: "Chiara Iantorno" 
 output: html_document
 ---
 
@@ -69,6 +70,27 @@ It's important that you don't recode the NAs, just the remaining levels.
 
 ```{marginfigure}
 You can do this in various ways. One option is to use the `str_detect()` function to detect the existence of words like liberal or conservative. Note that these sometimes show up with lowercase first letters and sometimes with upper case first letters. To detect either in the `str_detect()` function, you can use "[Ll]iberal" and "[Cc]onservative". But feel free to solve the problem however you like, this is just one option!
+```
+
+
+```{r}
+gss16 <- gss16 %>%
+  mutate(
+    advfront = fct_recode(
+      advfront,
+      Agree = "Strongly agree", 
+      Agree = "Agree",
+      `Not agree` = "Strongly disagree", 
+      `Not agree` = "Disagree", 
+      `Not agree` = "Neither agree nor disagree", 
+      `Not agree` = "Don't know",
+      `Not agree` = "Dont know",
+    ),
+    advfront = fct_relevel(advfront, "Agree", "Not agree")  
+  )
+
+count(gss16, advfront)
+
 ```
 
 2.  Combine the levels of the `polviews` variable such that levels that have the word "liberal" in them are lumped into a level called `"Liberal"` and those that have the word conservative in them are lumped into a level called `"Conservative"`. Then, re-order the levels in the following order: `"Conservative"` , `"Moderate"`, and `"Liberal"`. Finally, `count()` how many times each new level appears in the `polviews` variable.
