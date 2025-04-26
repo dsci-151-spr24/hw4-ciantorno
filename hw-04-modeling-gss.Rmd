@@ -6,12 +6,15 @@ output: html_document
 
 ```{r include = FALSE}
 knitr::opts_chunk$set(
-  eval = FALSE,
+  eval = TRUE,
   out.width = "80%",
   fig.asp = 0.618,
   fig.width = 10,
   dpi = 300
 )
+
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(error = FALSE)
 ```
 
 ```{r photo, fig.margin = TRUE, echo = FALSE, fig.width = 3, fig.cap = "Photo Mauro Mora on Unsplash", eval = TRUE}
@@ -94,18 +97,34 @@ count(gss16, advfront)
 ```
 
 2.  Combine the levels of the `polviews` variable such that levels that have the word "liberal" in them are lumped into a level called `"Liberal"` and those that have the word conservative in them are lumped into a level called `"Conservative"`. Then, re-order the levels in the following order: `"Conservative"` , `"Moderate"`, and `"Liberal"`. Finally, `count()` how many times each new level appears in the `polviews` variable.
+
+```{r}
+gss16 <- gss16 %>%
+  mutate(
+    polviews = case_when(
+      str_detect(polviews, "[Ll]iberal") ~ "Liberal",
+      str_detect(polviews, "[Cc]onservative") ~ "Conservative",
+      polviews == "Moderate" ~ "Moderate",
+      TRUE ~ NA_character_  
+    ),
+    polviews = factor(polviews, levels = c("Conservative", "Moderate", "Liberal"))  
+  )
+count(gss16, polviews)
+
+```
+
 3.  Create a new data frame called `gss16_advfront` that includes the variables `advfront`, `educ`, `polviews`, and `wrkstat`. Then, use the `drop_na()` function to remove rows that contain `NA`s from this new data frame. Sample code is provided below.
 
-```{r eval=FALSE}
+```{r}
 gss16_advfront <- gss16 %>%
-  select(___, ___, ___, ___) %>%
+  select(advfront, educ, polviews, wrkstat) %>%
   drop_na()
 ```
 
 4.  Split the data into training (75%) and testing (25%) data sets. Make sure to set a seed before you do the `initial_split()`. Call the training data `gss16_train` and the testing data `gss16_test`. Sample code is provided below. Use these specific names to make it easier to follow the rest of the instructions.
 
-```{r eval=FALSE}
-set.seed(___)
+```{r}
+set.seed(123)
 gss16_split <- initial_split(gss16_advfront)
 gss16_train <- training(gss16_split)
 gss16_test  <- testing(gss16_split)
@@ -119,25 +138,25 @@ gss16_test  <- testing(gss16_split)
 
     -   `step_dummy()` to create dummy variables for `all_nominal()` variables that are predictors, i.e. `all_predictors()`
 
-```{r eval=FALSE}
-gss16_rec_1 <- recipe(___ ~ ___, data = ___) %>%
-  step_other(wrkstat, threshold = ___, other = "Other") %>%
+```{r}
+gss16_rec_1 <- recipe(advfront ~ polviews + wrkstat + educ, data = gss16) %>%
+  step_other(wrkstat, threshold = 0.1, other = "Other") %>%
   step_dummy(all_nominal(), -all_outcomes())
 ```
 
 6.  Specify a logistic regression model using `"glm"` as the engine. Name this specification `gss16_spec`. Sample code is provided below.
 
-```{r eval=FALSE}
-gss16_spec <- ___() %>%
-  set_engine("___")
+```{r}
+gss16_spec <- logistic_reg() %>%
+  set_engine("glm")
 ```
 
 7.  Build a workflow that uses the recipe you defined (`gss16_rec`) and the model you specified (`gss16_spec`). Name this workflow `gss16_wflow_1`. Sample code is provided below.
 
-```{r eval=FALSE}
+```{r}
 gss16_wflow_1 <- workflow() %>%
-  add_model(___) %>%
-  add_recipe(___)
+  add_model(gss16_spec) %>%
+  add_recipe(gss16_rec_1)
 ```
 
 8.  Perform 5-fold cross validation.
@@ -151,16 +170,19 @@ gss16_wflow_1 <- workflow() %>%
 
     -   report the average area under the ROC curve and the accuracy for all cross validation folds `collect_metrics()`
 
-```{r eval=FALSE}
-set.seed(___)
-gss16_folds <- vfold_cv(___, v = ___)
+```{r}
+set.seed(68)
+gss16_folds <- vfold_cv(gss16, v = 5)
 
 gss16_fit_rs_1 <- gss16_wflow_1 %>%
-  fit_resamples(___)
+  fit_resamples(resamples = gss16_folds)
 
-collect_metrics(___, summarize = FALSE)
-collect_metrics(___)
+collect_metrics(gss16_fit_rs_1, summarize = FALSE)
+collect_metrics(gss16_fit_rs_1)
 ```
+
+***The average area under the ROC curve is 0.62 and the accuracy for all cross validation folds is 0.84.***
+
 
 9.  Now, try a different, simpler model: predict `advfront` from only `polviews` and `educ`.
     Specifically,
@@ -169,21 +191,104 @@ collect_metrics(___)
     -   redefine the workflow with the new recipe (and name this new workflow `gss16_wflow_2`),
     -   perform cross validation, and
     -   report the average area under the ROC curve and the accuracy for all cross validation folds `collect_metrics()`.
+   .  Now, try a different, simpler model: predict `advfront` from only `polviews` and `educ`.
+    Specifically,
+
+    -   update the recipe to reflect this simpler model specification (and name it `gss16_rec_2`),
+    -   redefine the workflow with the new recipe (and name this new workflow `gss16_wflow_2`),
+    -   perform cross validation, and
+    -   report the average area under the ROC curve and the accuracy for all cross validation folds `collect_metrics()`.
+    
+```{r}
+gss16_rec_2 <- recipe(advfront ~ polviews + educ, data = gss16_train) %>%
+  step_dummy(all_nominal(), -all_outcomes())
+
+```
+
+```{r}
+gss16_spec <- logistic_reg() %>%
+  set_engine("glm")
+```
+
+```{r}
+gss16_wflow_2 <- workflow() %>%
+  add_model(gss16_spec) %>%
+  add_recipe(gss16_rec_2)
+```
+
+```{r}
+set.seed(42)
+gss16_folds <- vfold_cv(gss16_train, v = 5)
+
+
+gss16_fit_rs_2 <- gss16_wflow_2 %>%
+  fit_resamples(resamples = gss16_folds)
+
+
+collect_metrics(gss16_fit_rs_2, summarize = FALSE)
+collect_metrics(gss16_fit_rs_2)
+```
+
+***The average area under the ROC curve is 0.62 and the accuracy for all cross validation folds is 0.83.***
 
 10. Comment on which model performs better (one including `wrkstat`, model 1, or the one excluding `wrkstat`, model 2) on the training data based on area under the ROC curve.
+
+***Both models have about the same performance.  However, when looking at the full ROC AUC scores, model 1 performs slightly better.***
 
 11. Fit both models to the testing data, plot the ROC curves for the predictions for both models, and calculate the areas under the ROC curve.
     Does your answer to the previous exercise hold for the testing data as well?
     Explain your reasoning.
     Note: If you haven't yet done so, you'll need to first train your workflows on the training data with the following, and then use these fit objects to calculate predictions for the test data.
 
-```{r eval=FALSE}
+```{r}
 gss16_fit_1 <- gss16_wflow_1 %>%
   fit(gss16_train)
 
 gss16_fit_2 <- gss16_wflow_2 %>%
   fit(gss16_train)
 ```
+
+```{r}
+gss16_preds_1 <- predict(gss16_fit_1, gss16_test, type = "prob") %>%
+  bind_cols(gss16_test)
+
+gss16_preds_2 <- predict(gss16_fit_2, gss16_test, type = "prob") %>%
+  bind_cols(gss16_test)
+```
+
+```{r}
+roc_1 <- roc_curve(gss16_preds_1, truth = advfront, .pred_Agree)
+roc_2 <- roc_curve(gss16_preds_2, truth = advfront, .pred_Agree)
+```
+
+```{r}
+
+roc_1 <- roc_1 %>% mutate(model = "Model 1")
+roc_2 <- roc_2 %>% mutate(model = "Model 2")
+
+roc_combined <- bind_rows(roc_1, roc_2)
+
+```
+
+```{r}
+ggplot(roc_combined, aes(x = 1 - specificity, y = sensitivity, color = model)) +
+  geom_line(size = 1.5) +
+  geom_abline(linetype = "dashed", color = "black") +
+  labs(
+    title = "ROC Curves for Model 1 and Model 2",
+    x = "False Positive Rate)",
+    y = "True Positive Rate)",
+    color = "Model"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+roc_auc(gss16_preds_1, truth = advfront, .pred_Agree)
+roc_auc(gss16_preds_2, truth = advfront, .pred_Agree)
+```
+
+***The AUC's ended up showing that model two actually works slightly better, which is the opposite of what was displayed in the training data.***
 
 🧶 ✅ ⬆️ Knit, *commit, and push your changes to GitHub with an appropriate commit message. Make sure to commit and push all changed files so that your Git pane is cleared up afterwards.*
 
