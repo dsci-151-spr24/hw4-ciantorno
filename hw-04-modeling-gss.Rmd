@@ -302,8 +302,52 @@ The question is phrased as the following.
 Answers to this question are stored in the `harass5` variable in our dataset.
 
 12. Create a subset of the data that only contains `Yes` and `No` answers for the harassment question. How many responses chose each of these answers?
+
+```{r}
+gss16_harass <- gss16 %>%
+  filter(harass5 %in% c("Yes", "No")) %>%
+  count(harass5)
+
+gss16_harass
+```
+
+***1136 chose "No" and 237 chose "Yes"***
+
 13. Describe how bootstrapping can be used to estimate the proportion of Americans who have been harassed by their superiors or co-workers at their job.
+
+***Bootstrapping can be used to estimate the proportion of harassed and non-harassed Americans by taking a lot of random samples and using them to calculate proportions, means, and other statistical data.  We can also make confidence intervals***
+
 14. Calculate a 95% bootstrap confidence interval for the proportion of Americans who have been harassed by their superiors or co-workers at their job. Interpret this interval in context of the data.
+
+```{r}
+set.seed(28)
+
+gss16_harass_filtered <- gss16 %>%
+  filter(harass5 %in% c("Yes", "No"))
+
+
+bootstrap_proportion <- function(data, n) {
+  sample_data <- sample(data, size = n, replace = TRUE)
+  mean(sample_data == "Yes") 
+}
+
+n_bootstrap <- 1000
+
+bootstrap_results <- replicate(n_bootstrap, 
+                               bootstrap_proportion(gss16_harass_filtered$harass5, 
+                                                    length(gss16_harass_filtered$harass5)))
+
+
+conf_int <- quantile(bootstrap_results, probs = c(0.025, 0.975))
+
+
+conf_int
+```
+
+***This means that we are 95% sure that somewhere between 15% and 19% of Americans have experienced harassment from superiors at work.***
+
 15. Would you expect a 90% confidence interval to be wider or narrower than the interval you calculated above? Explain your reasoning.
+
+***I would expect that a 90% confidence interval would be wider than the interval calculated above, because the level of confidence is lower. Therefore, the answer less concise because there is a larger amount of possible percentages for the answer.***
 
 🧶 ✅ ⬆️ Knit, *commit, and push your changes to GitHub with an appropriate commit message. Make sure to commit and push all changed files so that your Git pane is cleared up afterwards and review the md document on GitHub to make sure you're happy with the final state of your work.*
